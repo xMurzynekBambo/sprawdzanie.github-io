@@ -7,8 +7,8 @@ import time
 LOCAL_VERSION = "0.03"
 # Adres URL pliku z aktualną wersją
 VERSION_URL = "https://xmurzynekbambo.github.io/sprawdzanie.github-io/version.txt"
-FILE_URL = "https://xmurzynekbambo.github.io/sprawdzanie.github-io/main2.py"
-LOCAL_FILE_NAME = "main.py"
+co_ma_pobrac = "https://xmurzynekbambo.github.io/sprawdzanie.github-io/main.py"
+lokalna_nazwa_pliku = "main.py"
 
 class GameState:
     def __init__(self, nr_pokoj=0, gracz_hp=100, gold=0, przeciwnik_dmg=None, dmg=None):
@@ -32,9 +32,12 @@ def sprawdz_wersje():
         if response.status_code == 200:
             server_version = response.text.strip()
             if server_version > LOCAL_VERSION:
-                print("Pobierz nową wersję")
-                time.sleep(5)
-                exit()
+                print("/pobierz")
+                co_zrobic = input()
+                if(co_zrobic=="/pobierz"):
+                    pobierz_plik(co_ma_pobrac, lokalna_nazwa_pliku)
+                else:
+                    exit()
             else:
                 return True
         else:
@@ -48,10 +51,10 @@ def sprawdz_wersje():
         print(f"Wystąpił błąd podczas sprawdzania wersji: {e}")
         return False
 
-def pobierz_plik(url, lokalna_nazwa_pliku):
+def pobierz_plik(co_ma_pobrac, lokalna_nazwa_pliku):
     try:
         print("Pobieranie pliku...")
-        response = requests.get(url, timeout=10)
+        response = requests.get(co_ma_pobrac, timeout=10)
         if response.status_code == 200:
             with open(lokalna_nazwa_pliku, "wb") as file:
                 file.write(response.content)
