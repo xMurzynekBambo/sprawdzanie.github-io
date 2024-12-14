@@ -1,229 +1,204 @@
+import os
+import random
 import requests
 import time
-# Lokalna wersja aplikacji
-LOCAL_VERSION = "0.02"
 
+# Lokalna wersja aplikacji
+LOCAL_VERSION = "0.03"
 # Adres URL pliku z aktualną wersją
 VERSION_URL = "https://xmurzynekbambo.github.io/sprawdzanie.github-io/version.txt"
+FILE_URL = "https://xmurzynekbambo.github.io/sprawdzanie.github-io/main2.py"
+LOCAL_FILE_NAME = "main.py"
 
-def check_ingame():
+class GameState:
+    def __init__(self, nr_pokoj=0, gracz_hp=100, gold=0, przeciwnik_dmg=None, dmg=None):
+        self.nr_pokoj = nr_pokoj
+        self.gracz_hp = gracz_hp
+        self.gold = gold
+        self.przeciwnik_dmg = przeciwnik_dmg or random.randint(3, 7)
+        self.dmg = dmg or random.randint(6, 10)
+
+# Narzędzia
+
+def wyczysc_ekran():
+    if os.name == 'nt':  # Windows
+        os.system('cls')
+    else:  # Linux/macOS
+        os.system('clear')
+
+def sprawdz_wersje():
     try:
-        # Pobieranie aktualnej wersji z serwera
-        print(f"Łączenie z {VERSION_URL}...")
         response = requests.get(VERSION_URL, timeout=5)
-        
         if response.status_code == 200:
             server_version = response.text.strip()
             if server_version > LOCAL_VERSION:
-                print("pobierz nowa wersja")
+                print("Pobierz nową wersję")
                 time.sleep(5)
-                exit
+                exit()
             else:
-                return True  # Kontynuuj skrypt
+                return True
         else:
             print("Nie udało się sprawdzić aktualnej wersji")
             time.sleep(5)
-            exit
+            exit()
     except requests.ConnectionError as e:
         print(f"Brak połączenia z serwerem: {e}")
         return False
     except Exception as e:
         print(f"Wystąpił błąd podczas sprawdzania wersji: {e}")
-        return False  # Zatrzymaj w przypadku błędu
+        return False
 
-def check_version_and_run():
+def pobierz_plik(url, lokalna_nazwa_pliku):
     try:
-        # Pobieranie aktualnej wersji z serwera
-        print(f"Łączenie z {VERSION_URL}...")
-        response = requests.get(VERSION_URL, timeout=5)
-        
+        print("Pobieranie pliku...")
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            server_version = response.text.strip()
-            print(f"Aktualna wersja serwera: {server_version}")
-            
-            # Porównanie wersji
-            if server_version > LOCAL_VERSION:
-                print(f"Używasz starej wersji aplikacji ({LOCAL_VERSION}).")
-                print(f"Najnowsza wersja to {server_version}. Zaktualizuj aplikację, aby kontynuować.")
-                return False  # Zatrzymaj skrypt
-            else:
-                print(f"Używasz najnowszej wersji ({LOCAL_VERSION}).")
-                return True  # Kontynuuj skrypt
+            with open(lokalna_nazwa_pliku, "wb") as file:
+                file.write(response.content)
+            print(f"Plik został pomyślnie pobrany jako {lokalna_nazwa_pliku}.")
         else:
-            print("Nie udało się sprawdzić aktualnej wersji")
-            time.sleep(5)
-            exit
-    except requests.ConnectionError as e:
-        print(f"Brak połączenia z serwerem: {e}")
-        return False
+            print(f"Błąd podczas pobierania pliku: {response.status_code}")
+    except requests.ConnectionError:
+        print("Nie udało się połączyć z serwerem. Sprawdź swoje połączenie internetowe.")
     except Exception as e:
-        print(f"Wystąpił błąd podczas sprawdzania wersji: {e}")
-        return False  # Zatrzymaj w przypadku błędu
+        print(f"Wystąpił błąd: {e}")
 
-def main_script():
-    import random
-    import os
+# Funkcje gry
 
+def zapisz_gre(game_state, nazwa_zapisu):
+    folder_zapisow = "saves"
+    if not os.path.exists(folder_zapisow):
+        os.makedirs(folder_zapisow)
 
-    # Początkowe wartości statystyk gracza i przeciwnika
-    gold = 0  # Ilość złota posiadanego przez gracza
-    nrpokoj = 0  # Numer aktualnego pokoju
-    gracz_hp = 100  # Punkty życia gracza
-    przeciwnik_dmg = random.randint(3, 7)  # Losowe obrażenia przeciwnika na początku
+    sciezka_zapisu = os.path.join(folder_zapisow, f"{nazwa_zapisu}.txt")
+    with open(sciezka_zapisu, "w") as file:
+        file.write(f"nr_pokoj {game_state.nr_pokoj}\n")
+        file.write(f"gracz_hp {game_state.gracz_hp}\n")
+        file.write(f"gold {game_state.gold}\n")
+        file.write(f"przeciwnik_dmg {game_state.przeciwnik_dmg}\n")
+        file.write(f"dmg {game_state.dmg}\n")
+    print(f"Gra zapisana pomyślnie w pliku {sciezka_zapisu}.")
 
-    # Tworzenie folderu do zapisywania gier, jeśli nie istnieje
-    save_folder = "saves"
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+def wczytaj_gre(nazwa_zapisu):
+    folder_zapisow = "saves"
+    sciezka_zapisu = os.path.join(folder_zapisow, f"{nazwa_zapisu}.txt")
+    try:
+        with open(sciezka_zapisu, "r") as file:
+            dane = {}
+            for linia in file:
+                klucz, wartosc = linia.strip().split(" ")
+                dane[klucz] = int(wartosc)
+            return GameState(
+                nr_pokoj=dane.get("nr_pokoj", 0),
+                gracz_hp=dane.get("gracz_hp", 100),
+                gold=dane.get("gold", 0),
+                przeciwnik_dmg=dane.get("przeciwnik_dmg", random.randint(3, 7)),
+                dmg=dane.get("dmg", random.randint(6, 10))
+            )
+    except FileNotFoundError:
+        print("Zapis o podanej nazwie nie istnieje.")
+        return None
 
+def walka_z_przeciwnikiem(game_state):
+    print("Uwaga! Znalazłeś się w zasadzce!")
+    przeciwnik_hp = random.randint(1, 10)
+    print(f"HP przeciwnika: {przeciwnik_hp}")
 
-    # Funkcja do zapisywania gry
-    def save_game(save_name, nrpokoj, gracz_hp, gold, przeciwnik_dmg):
-        save_path = os.path.join(save_folder, f"{save_name}.txt")
-        with open(save_path, "w") as file:
-            # Dane są zapisywane w losowej kolejności, co utrudnia manipulację plikiem
-            data = [("1", nrpokoj), ("2", gracz_hp), ("3", przeciwnik_dmg), ("4", gold)]
-            random.shuffle(data)
-            for key, value in data:
-                file.write(f"{key} {value}\n")
-        print(f"Gra zapisana pomyślnie w pliku {save_path}.")
+    while przeciwnik_hp > 0 and game_state.gracz_hp > 0:
+        print(f"Twoje HP: {game_state.gracz_hp}")
+        komenda = input("Podaj komendę: ")
 
+        if komenda == "/napierdalaj":
+            game_state.gold += int(game_state.dmg * 0.10)
+            przeciwnik_hp -= game_state.dmg
+            if przeciwnik_hp <= 0:
+                print("Rozgromiłeś przeciwnika!")
+            else:
+                game_state.gracz_hp -= game_state.przeciwnik_dmg
+        else:
+            print("Nieznana komenda!")
 
-    # Funkcja do wczytywania gry
-    def load_game(save_name):
-        save_path = os.path.join(save_folder, f"{save_name}.txt")
-        try:
-            with open(save_path, "r") as file:
-                data = {}
-                # Wczytywanie danych i mapowanie do odpowiednich zmiennych
-                for line in file:
-                    key, value = line.strip().split(" ")
-                    data[key] = int(value)
-                nrpokoj = data.get("1", 0)
-                gracz_hp = data.get("2", 100)
-                przeciwnik_dmg = data.get("3", 3)
-                gold = data.get("4", 0)
-                return nrpokoj, gracz_hp, przeciwnik_dmg, gold
-        except FileNotFoundError:
-            print("Zapis o podanej nazwie nie istnieje.")
-            return None
+    if game_state.gracz_hp <= 0:
+        print("Zginąłeś! Gra kończy się.")
+        return False
+    return True
 
+def przeszukaj_pokoj(game_state):
+    print("Przeszukujesz pokój...")
+    znaleziono = random.choice(["zloto", "bron"])
+    if znaleziono == "zloto":
+        zgold = random.randint(10, 50)
+        game_state.gold += zgold
+        print(f"Znalazłeś {zgold} złota. Masz teraz {game_state.gold}.")
+    else:
+        print("Znalazłeś nową broń!")
 
-    # Ekran początkowy gry
-    print("0.0.0.0.0.0")
-    print("\n\n")
+def wyswietl_statystyki(game_state):
+    print(f"Twoje statystyki: HP = {game_state.gracz_hp}, Pokój = {game_state.nr_pokoj}, Złoto = {game_state.gold}")
+
+# Główna funkcja gry
+
+def rozpocznij_gre():
+    game_state = GameState()
+
     print("Chcesz wczytać grę czy rozpocząć nową? (/wczytaj lub Enter)")
     komenda = input("Podaj komendę: ")
 
-    # Obsługa wczytywania gry
     if komenda == "/wczytaj":
-        save_name = input("Podaj nazwę zapisu do wczytania: ")
-        game_data = load_game(save_name)
-        if game_data:
-            nrpokoj, gracz_hp, przeciwnik_dmg, gold = game_data
-            print(f"Stan gry wczytany pomyślnie. Jesteś w pokoju nr {nrpokoj}. Twoje HP: {gracz_hp}. Złoto: {gold}.")
+        nazwa_zapisu = input("Podaj nazwę zapisu do wczytania: ")
+        stan_gry = wczytaj_gre(nazwa_zapisu)
+        if stan_gry:
+            game_state = stan_gry
         else:
-            exit()  # Zamykanie gry, jeśli nie można wczytać zapisu
+            return
     else:
-        # Rozpoczęcie nowej gry
-        print("\nMasz przejsc przez pokoje i zabic bossa pozdro")
-        
-    # Główna pętla gry
+        print("Rozpoczynasz nową grę!")
+
     while True:
+        
         komenda = input("\nPodaj komendę: ")
-        check_ingame()
-        # Wyświetlanie dostępnych komend
+        wyczysc_ekran()
         if komenda == "/komendy":
             print("Dostępne komendy:\n",
-                "/dalej - przechodzisz do kolejnego pokoju\n",
-                "/przeszukaj - przeszukujesz pokój\n",
-                "/statystyki - wyświetla twoje statystyki\n",
-                "/save - zapisuje stan gry\n",
-                "/wczytaj - wczytuje stan gry\n",
-                "/wyjdz - zakończ grę\n",
-                "/boss - napierdalaj bosa(po 50 pokoju)")
+                  "/dalej - przechodzisz do kolejnego pokoju\n",
+                  "/przeszukaj - przeszukujesz pokój\n",
+                  "/statystyki - wyświetla twoje statystyki\n",
+                  "/save - zapisuje stan gry\n",
+                  "/wczytaj - wczytuje stan gry\n",
+                  "/wyjdz - zakończ grę\n",
+                  "/boss - walka z bossem (po 50 pokoju)")
 
-        # Przejście do kolejnego pokoju
         elif komenda == "/dalej":
-            nrpokoj += 1
-            print(f"\nWchodzisz do pokoju nr {nrpokoj}.")
-            if nrpokoj % 10 == 0:  # Co 10 pokoi przeciwnik staje się silniejszy
-                przeciwnik_dmg += 10
-                print(f"Obrażenia przeciwnika wzrosły! Teraz zadaje {przeciwnik_dmg} obrażeń.\n")
-                input("wcisnij ENTER aby kontynuowac\n")
-                print("witaj w sklepie\n")
-                
+            game_state.nr_pokoj += 1
+            print(f"\nWchodzisz do pokoju nr {game_state.nr_pokoj}.")
 
-            # Losowanie rodzaju pokoju
-            pokoj = random.choice(["Zasadzka w Korytarzu", "Bezpieczny Pokój\n"])
-            print(f"Wchodzisz do pokoju: {pokoj}")
+            if game_state.nr_pokoj % 10 == 0:
+                game_state.przeciwnik_dmg += 10
+                print(f"Obrażenia przeciwnika wzrosły! Teraz zadaje {game_state.przeciwnik_dmg} obrażeń.")
 
-            if pokoj == "Zasadzka w Korytarzu":
-                print("Uwaga! Znalazłeś się w zasadzce!")
-                hp = random.randint(1, 10)  # Losowe HP przeciwnika
-                print(f"HP przeciwnika: {hp}")
-
-                # Walka z przeciwnikiem
-                while hp > 0 and gracz_hp > 0:
-                    print(f"Twoje HP: {gracz_hp}")
-                    komenda = input(f"Co chcesz zrobić? (Obrażenia przeciwnika: {przeciwnik_dmg})\nPodaj komendę: ")
-
-                    if komenda == "/napierdalaj":
-                        dmg = random.randint(5, 8)  # Losowe obrażenia zadawane przeciwnikowi
-                        print(f"Zadajesz {dmg} obrażeń przeciwnikowi.\n")
-                        hp -= dmg
-                        if hp <= 0:
-                            print("Rozgromiłeś przeciwnika!\n")
-                        else:
-                            print(f"Przeciwnikowi zostało {hp} HP.")
-                            gracz_hp -= przeciwnik_dmg  # Gracz otrzymuje obrażenia
-                            print(f"Przeciwnik zadaje {przeciwnik_dmg} obrażeń. Twoje HP: {gracz_hp}")
-                    else:
-                        print("Nieznana komenda! Spróbuj ponownie.")
-
-                # Koniec gry, jeśli gracz umarł
-                if gracz_hp <= 0:
-                    print("Zginąłeś! Gra kończy się.")
+            if random.choice([True, False]):
+                if not walka_z_przeciwnikiem(game_state):
                     break
             else:
                 print("To jest bezpieczny pokój. Możesz kontynuować.")
 
-        # Przeszukiwanie pokoju
         elif komenda == "/przeszukaj":
-            print("Przeszukujesz pokój...")
-            znaleziono = random.choice(["zloto", "bron"])  # Losowanie nagrody
-            if znaleziono == "zloto":
-                zgold = random.randint(10, 50)
-                gold += zgold
-                print(f"Znalazłeś {zgold} złota. Masz teraz {gold}.")
-            else:
-                print("Znalazłeś nową broń!")
-        elif komenda=="/boss":
-            if(nrpokoj>=50):
-                print("cwel")
-            else:
-                print(f"jestes w pokoju {nrpokoj} a potrzebujesz byc w conajmniej 50")
+            przeszukaj_pokoj(game_state)
 
-        # Wyświetlanie statystyk gracza
         elif komenda == "/statystyki":
-            print(f"Twoje statystyki: HP = {gracz_hp}, Pokój = {nrpokoj}, Obrażenia przeciwnika = {przeciwnik_dmg}, Złoto = {gold}")
+            wyswietl_statystyki(game_state)
 
-        # Zapis gry
         elif komenda == "/save":
-            save_name = input("Podaj nazwę zapisu: ")
-            save_game(save_name, nrpokoj, gracz_hp, gold, przeciwnik_dmg)
+            nazwa_zapisu = input("Podaj nazwę zapisu: ")
+            zapisz_gre(game_state, nazwa_zapisu)
 
-        # Wyjście z gry
         elif komenda == "/wyjdz":
             print("Wychodzenie z gry...")
             break
 
-        # Obsługa nieznanych komend
         else:
             print("Nieznana komenda. Spróbuj ponownie.")
 
-
-if check_version_and_run():
-    main_script()
-else:
-    print("Skrypt zatrzymany z powodu braku zgodności wersji.")
+if __name__ == "__main__":
+    if sprawdz_wersje():
+        rozpocznij_gre()
